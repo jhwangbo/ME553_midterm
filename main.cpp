@@ -5,33 +5,39 @@
 #define _MAKE_STR(x) #x
 
 int main() {
-    std::string rsc_dir = std::string(MAKE_STR(RSC_DIR));
-    /// create raisim world
-    raisim::World world;
-    world.setTimeStep(0.001);
+  std::string rsc_dir = std::string(MAKE_STR(RSC_DIR));
+  /// create raisim world
+  raisim::World world;
+  world.setTimeStep(0.001);
 
-    /// create objects
-    world.addGround();
-    auto cartPole = world.addArticulatedSystem(raisim::Path(rsc_dir + "\\doubleCartPole\\doubleCartPole.urdf").getString());
-    cartPole->setIntegrationScheme(raisim::ArticulatedSystem::IntegrationScheme::RUNGE_KUTTA_4);
+  /// create objects
+  world.addGround();
+  auto cartPole =
+      world.addArticulatedSystem(raisim::Path(rsc_dir + "\\doubleCartPole\\doubleCartPole.urdf").getString());
+  cartPole->setIntegrationScheme(raisim::ArticulatedSystem::IntegrationScheme::RUNGE_KUTTA_4);
 
-    /// cartPole state
-    Eigen::VectorXd jointNominalConfig(cartPole->getGeneralizedCoordinateDim());
-    jointNominalConfig.setZero();
-    jointNominalConfig[1] = 0.01;
-    cartPole->setGeneralizedCoordinate(jointNominalConfig);
+  /// cartPole state
+  Eigen::VectorXd gc(cartPole->getGeneralizedCoordinateDim()), gv(cartPole->getDOF());
+  gc.setZero();
+  gc[1] = 0.01;
+  cartPole->setGeneralizedCoordinate(gc);
 
-    /// launch raisim server
-    raisim::RaisimServer server(&world);
-    server.launchServer();
-    server.focusOn(cartPole);
+  /// launch raisim server
+  raisim::RaisimServer server(&world);
+  server.launchServer();
+  server.focusOn(cartPole);
 
-    for (int i=0; i<200000; i++) {
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
-        server.integrateWorldThreadSafe();
-    }
+  /// mass matrix
+  gc << 0.1, 0.2, 0.3;
+  gv << 0.1, 0.2, 0.3;
+  cartPole->setState(gc, gv);
 
-    server.killServer();
+  for (int i = 0; i < 200000; i++) {
+    std::this_thread::sleep_for(std::chrono::microseconds(10));
+    server.integrateWorldThreadSafe();
+  }
 
-    return 0;
+  server.killServer();
+
+  return 0;
 }
